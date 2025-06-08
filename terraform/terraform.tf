@@ -27,7 +27,7 @@ terraform {
   }
 
   backend "s3" {
-    key    = "terraform.tfstate"
+    key = "terraform.tfstate"
   }
 
   required_version = "~> 1.6.3"
