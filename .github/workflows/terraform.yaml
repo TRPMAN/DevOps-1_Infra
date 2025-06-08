@@ -41,7 +41,7 @@ jobs:
 
       - name: Setup Terraform
         # this is come from github marketplace
-        uses: hashicorp/setup-terraform@v4
+        uses: hashicorp/setup-terraform@v3
         # for specific version
         # with:
           # terraform_version: "1.8.0"
