@@ -1,0 +1,18 @@
+name: "DevOps-1_Infra"
+# when should this workflow start?
+on:
+  # on push event
+  push:
+    branches:
+      - main
+      - stage
+    # only this path of the folder
+    paths:
+      - terraform/**
+  # on pull request event
+  pull_request:
+    branches:
+      - main
+    paths:
+      - terraform/**
+
