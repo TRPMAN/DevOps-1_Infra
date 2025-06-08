@@ -2,7 +2,7 @@ module "vpc" {
   source  = "terraform-aws-modules/vpc/aws"
   version = "5.1.2"
 
-  name = "vprofile-eks"
+  name = "eks-vpc"
 
   cidr = "172.20.0.0/16"
   azs  = slice(data.aws_availability_zones.available.names, 0, 3)
@@ -11,6 +11,7 @@ module "vpc" {
   public_subnets  = ["172.20.4.0/24", "172.20.5.0/24", "172.20.6.0/24"]
 
   enable_nat_gateway   = true
+  # it should create 3 nat gateway but we reduce the cost
   single_nat_gateway   = true
   enable_dns_hostnames = true
 
