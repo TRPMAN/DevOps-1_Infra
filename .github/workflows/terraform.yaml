@@ -49,7 +49,7 @@ jobs:
         # initialize Terraform
       - name: Terraform Init
         id: terra-init
-        run: terraform init -backend-config="bucket=${{ env.BUCKET_TF_STATE }}" -backend-config="region=${{ env.AWS_REGION }}"        
+        run: terraform init -backend-config="bucket=${{ env.BUCKET_TF_STATE }}" -backend-config="region=${{ env.AWS_REGION }}"    
 
         # check format in .tf
       - name: Terraform Format
