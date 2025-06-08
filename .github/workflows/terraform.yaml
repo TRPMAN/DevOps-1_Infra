@@ -41,10 +41,10 @@ jobs:
 
       - name: Setup Terraform
         # this is come from github marketplace
-        uses: hashicorp/setup-terraform@v3
+        uses: hashicorp/setup-terraform@v2
         # for specific version
-        # with:
-          # terraform_version: "1.8.0"
+        with:
+          terraform_version: "1.6.3"
 
         # initialize Terraform
       - name: Terraform Init
