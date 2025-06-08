@@ -15,4 +15,64 @@ on:
       - main
     paths:
       - terraform/**
+env:
+  AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
+  AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+  BUCKET_TF_STATE: ${{ secrets.BUCKET_TF_STATE }}
+  AWS_REGION: us-east-1
+  EKS_CLUSTER: devops-1-eks
+
+jobs:
+  # jobs name that use only in yaml filoe
+  terraform:
+    # this name will show on Github UI
+    name: "Apply Terraform Change"
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        shell: bash
+        working-directory: ./terraform
+
+    # similar to Jenkins
+    steps:
+      - name: Checkout source code
+        # this is come from github marketplace
+        uses: actions/checkout@v4
+
+      - name: Setup Terraform
+        # this is come from github marketplace
+        uses: hashicorp/setup-terraform@v2
+        # for specific version
+        # with:
+          # terraform_version: "1.8.0"
+
+        # initialize Terraform
+      - name: Terraform Init
+        id : terra-init
+        run: terraform init \
+          -backend-config="bucket=${{ env.BUCKET_TF_STATE }}" \
+          -backend-config="region=${{ env.AWS_REGION }}"        
+
+        # check format in .tf
+      - name: Terraform Format
+        id: terra-fmt
+        run: terraform fmt -check
+
+        # check syntax in .tf
+      - name: Terraform Validate
+        id: terra-validate
+        run: terraform validate
+
+        # dry run before real apply
+      - name: Terraform Plan
+        id: terra-plan
+        # store output in planfile
+        run: terraform plan -no-color -input=false -out planfile
+        # we want the output file so we do not want to fail this step
+        continue-on-error: true
+
+        # this is handle if it fails, the workflow will going to stop
+      - name: Terraform Plan Status
+        if: steps.terra-plan.outcome == 'failure'
+        run: exit 1
 

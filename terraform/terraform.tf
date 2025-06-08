@@ -27,9 +27,7 @@ terraform {
   }
 
   backend "s3" {
-    bucket = "devops-1-infra"
     key    = "terraform.tfstate"
-    region = "us-east-1"
   }
 
   required_version = "~> 1.6.3"
