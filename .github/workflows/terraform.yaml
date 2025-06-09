@@ -1,0 +1,103 @@
+name: "DevOps-1_Infra"
+# when should this workflow start?
+on:
+  # on push event
+  push:
+    branches:
+      - main
+      - stage
+    # only this path of the folder
+    paths:
+      - terraform/**
+  # on pull request event
+  pull_request:
+    branches:
+      - main
+    paths:
+      - terraform/**
+env:
+  AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
+  AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+  BUCKET_TF_STATE: ${{ secrets.BUCKET_TF_STATE }}
+  AWS_REGION: us-east-1
+  EKS_CLUSTER: devops-1-eks
+
+jobs:
+  # jobs name that use only in yaml filoe
+  terraform:
+    # this name will show on Github UI
+    name: "Terraform Apply and Setup Ingress"
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        shell: bash
+        working-directory: ./terraform
+
+    # similar to Jenkins
+    steps:
+      - name: Checkout source code
+        # this is come from github marketplace
+        uses: actions/checkout@v4
+
+      - name: Setup Terraform
+        # this is come from github marketplace
+        uses: hashicorp/setup-terraform@v2
+        # for specific version
+        with:
+          terraform_version: "1.6.3"
+
+        # initialize Terraform
+      - name: Terraform Init
+        id: terra-init
+        run: terraform init -backend-config="bucket=${{ env.BUCKET_TF_STATE }}" -backend-config="region=${{ env.AWS_REGION }}"    
+
+        # check format in .tf
+      - name: Terraform Format
+        id: terra-fmt
+        run: terraform fmt -check
+
+        # check syntax in .tf
+      - name: Terraform Validate
+        id: terra-validate
+        run: terraform validate
+
+        # dry run before real apply
+      - name: Terraform Plan
+        id: terra-plan
+        # store output in planfile
+        run: terraform plan -no-color -input=false -out planfile
+        # we want the output file so we do not want to fail this step
+        continue-on-error: true
+
+        # this is handle if it fails, the workflow will going to stop
+      - name: Terraform Plan Status
+        if: steps.terra-plan.outcome == 'failure'
+        run: exit 1
+
+      - name: Terraform Apply
+        id: terra-apply
+        # only if the main branch was pushed
+        if: github.ref == 'refs/heads/main' && github.event_name == 'push'
+        # -auto-approve like -y in linux
+        # -parallelism=1 to do only one resource at the time because it has a bug when we use default parallelism
+        # apply from the result that we got from Terraform Plan
+        
+        # connect to AWS
+        run: terraform apply -auto-approve -input=false -parallelism=1 planfile
+
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v1
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: ${{ env.AWS_REGION }}
+
+      - name: Get Kube config file
+        id: getconfig
+        if: steps.terra-apply.outcome == 'success'
+        # fetch .kube/config
+        run: aws eks update-kubeconfig --region ${{ env.AWS_REGION }} --name ${{ env.EKS_CLUSTER }} 
+
+      - name: Install Ingress controller
+        if: steps.terra-apply.outcome == 'success' && steps.getconfig.outcome == 'success'
+        run: kubectl apply -f https://raw.githubusercontent.com/kubernetes/ingress-nginx/controller-v1.1.3/deploy/static/provider/aws/deploy.yaml
