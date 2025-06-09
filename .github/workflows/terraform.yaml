@@ -26,7 +26,7 @@ jobs:
   # jobs name that use only in yaml filoe
   terraform:
     # this name will show on Github UI
-    name: "Apply Terraform Change"
+    name: "Terraform Apply and Setup Ingress"
     runs-on: ubuntu-latest
     defaults:
       run:
@@ -74,3 +74,30 @@ jobs:
         if: steps.terra-plan.outcome == 'failure'
         run: exit 1
 
+      - name: Terraform Apply
+        id: terra-apply
+        # only if the main branch was pushed
+        if: github.ref == 'refs/heads/main' && github.event_name == 'push'
+        # -auto-approve like -y in linux
+        # -parallelism=1 to do only one resource at the time because it has a bug when we use default parallelism
+        # apply from the result that we got from Terraform Plan
+        
+        # connect to AWS
+        run: terraform apply -auto-approve -input=false -parallelism=1 planfile
+
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v1
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: ${{ env.AWS_REGION }}
+
+      - name: Get Kube config file
+        id: getconfig
+        if: steps.terra-apply.outcome == 'success'
+        # fetch .kube/config
+        run: aws eks update-kubeconfig --region ${{ env.AWS_REGION }} --name ${{ env.EKS_CLUSTER }} 
+
+      - name: Install Ingress controller
+        if: steps.terra-apply.outcome == 'success' && steps.getconfig.outcome == 'success'
+        run: kubectl apply -f https://raw.githubusercontent.com/kubernetes/ingress-nginx/controller-v1.1.3/deploy/static/provider/aws/deploy.yaml
